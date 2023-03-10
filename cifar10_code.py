@@ -17,16 +17,20 @@ device = torch.device("cuda")
 class CustomDataset(Dataset):
     def __init__(self) -> None:
         super(CustomDataset, self).__init__()
-        self.targets = np.array([])
-        self.data = np.array([])
+        self.targets = None
+        self.data = None
 
-    def add_item(self, x, y):
-        self.targets = np.append(self.targets, x)
-        self.data = np.append(self.data, y)
+    def add_items(self, inputs, targets):
+        if isinstance(self.targets, np.ndarray) == False:
+            self.targets = np.array(targets)
+            self.data = np.array(inputs)
+        else:
+            self.targets = np.append(self.targets, targets)
+            self.data = np.append(self.data, inputs, axis = 0)
     
     def __getitem__(self, index):
         return self.data[index], self.targets[index]
-
+    
     def __len__(self):
         return len(self.data)
 
@@ -37,27 +41,20 @@ def build_new_train_dataset(args, train_dataset, trainset_permutation_inds):
             n_samples, n_features, last_selected_train_x_indexes, th_win, th_train_acc, th_stable_acc, th_stable_loss
     
     batch_size = args.batch_size
-    tot_batches = len(train_dataset.targets) // batch_size
     new_train_dataset = CustomDataset()
     print("building new train_dataset....")
     for batch_index, batch_start_idx in  enumerate(range(0, len(train_dataset.targets), batch_size)):
         batch_inds = trainset_permutation_inds[batch_start_idx: batch_start_idx + batch_size]
-        transformed_train_dataset_x = []
-        transformed_train_dataset_y = []
-        for ind in batch_inds:
-            if ind in visited_indexes:
-                transformed_train_dataset_x.append(train_dataset.__getitem__(ind)[0])
-                transformed_train_dataset_y.append(train_dataset.__getitem__(ind)[1])
-        if len(transformed_train_dataset_x) != 0:
-            inputs = torch.stack(transformed_train_dataset_x)
-            targets = torch.LongTensor(np.array(transformed_train_dataset_y))
-
-        for input, target in zip(inputs, targets):
-            new_train_dataset.add_item(input, target)
-        print(f"new_train_dataset progress: {len(new_train_dataset)} / {len(visited_indexes)} -- batch progress: {batch_index} / {tot_batches}")
+        elem_to_remove = np.setdiff1d(batch_inds.tolist(), list(visited_indexes))
+        batch_inds = np.setdiff1d(batch_inds.tolist(), elem_to_remove.tolist()).astype(int)
+        inputs = train_dataset.data[batch_inds]
+        targets = np.array(train_dataset.targets)[batch_inds]
+        new_train_dataset.add_items(inputs, targets)
     
     train_dataset = new_train_dataset
-
+    print(f"len new_train_dataset.targets-data: {len(train_dataset.targets)}-{len(train_dataset.data)} / {len(visited_indexes)}")
+    del new_train_dataset
+    
     if args.run_mode == "filter" and args.filter_button == True:
         # 保存从全部数据中筛选出来的下标至filtered_index_file_path
         torch.save(list(visited_indexes), args.filtered_index_file_path)
@@ -426,12 +423,14 @@ def main(args):
         optimizer, milestones=[60, 120, 160], gamma=0.2)
     
     # load dataset
-    normalize = transforms.Normalize(
-    mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-    std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
+    normalize = transforms.Normalize(mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                                    std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
     train_transform = transforms.Compose([])
+    train_transform.transforms.append(transforms.RandomCrop(32, padding=4)) # data augmentation
+    train_transform.transforms.append(transforms.RandomHorizontalFlip())
     train_transform.transforms.append(transforms.ToTensor())
     train_transform.transforms.append(normalize)
+    
     test_transform = transforms.Compose([transforms.ToTensor(), normalize])
 
     train_dataset = datasets.CIFAR10(
@@ -537,7 +536,7 @@ if __name__ == "__main__":
     main(args)
 
 # filter:
-# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --filter_button True --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode filter --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt
+# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --filter_button --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode filter --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt
 # pure:
 # python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode pure --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt
 # whole data:
