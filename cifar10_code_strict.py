@@ -401,9 +401,14 @@ def main(args):
     train_indx = None
     if args.run_mode == "filter":
         train_indx = np.array(range(len(train_dataset.targets)))
+
         with open(args.sorting_file, 'rb') as fin:
-            ordered_indx = pickle.load(fin)['indices']
-        unforgettable_idx = set(np.array(ordered_indx)[args.keep_lowest_n:args.keep_lowest_n + args.remove_n]) # 从forget中load unforget examples
+            items = list(pickle.load(fin).items())
+            ordered_indx = items[0][-1]
+            ordered_values = items[1][-1]
+        non_zero_forget_count_index = (np.array(ordered_values) > 0).argmax(axis = 0) # 从有序forget count列表中找到第一个非零元素的下标
+        unforgettable_idx = set(np.array(ordered_indx)[:non_zero_forget_count_index]) # 从forget中load unforget examples
+        print(f"forget-len(unforgettable_idx): {len(unforgettable_idx)}")
         train_dataset.data = train_dataset.data[train_indx, :, :, :]
         train_dataset.targets = np.array(train_dataset.targets)[train_indx].tolist()
     elif args.run_mode == "pure":
@@ -481,14 +486,12 @@ if __name__ == "__main__":
     '''
     parser.add_argument("--filtered_index_file_path", type=str, default="C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt", help="filtered_index_file_path")
     parser.add_argument("--sorting_file", type=str, default="C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\cifar10_results\\cifar10_sorted.pkl", help="sorting_file")
-    parser.add_argument("--keep_lowest_n", type=int, default=0, help="keep_lowest_n")
-    parser.add_argument("--unforget_n", type=int, default=0, help="unforget_n")
     args = parser.parse_args()
     main(args)
 
 # filter:
-# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --filter_button --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode filter --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt --sorting_file C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\cifar10_results\\cifar10_sorted.pkl --keep_lowest_n 0 --unforget_n 0
+# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --filter_button --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode filter --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt --sorting_file C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\cifar10_results\\cifar10_sorted.pkl
 # pure:
-# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode pure --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt --sorting_file C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\cifar10_results\\cifar10_sorted.pkl --keep_lowest_n 0 --unforget_n 0
+# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode pure --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt --sorting_file C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\cifar10_results\\cifar10_sorted.pkl
 # whole data:
-# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode filter --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt --sorting_file C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\cifar10_results\\cifar10_sorted.pkl --keep_lowest_n 0 --unforget_n 0
+# python cifar10_code.py --epochs 200 --batch_size 128 --lr 0.1 --seed 1 --th_win 3 --th_stable_acc 0.001 --th_stable_loss 0.001 --th_train_acc 0.85 --batch_to_filter 10 --threshold_occupation 2 --start_new_dataloader_min_nums 100 --threshold_test_accuracy_to_build_new_data 0.6  --min_data_nums_per_class 10 --max_data_nums_per_class 2000 --run_mode filter --filtered_index_file_path C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\filtered_index_file_path.pt --sorting_file C:\\Users\\GM\\Desktop\\liuzhengchang\\CODE\\cifar10_results\\cifar10_sorted.pkl
